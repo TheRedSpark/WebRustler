@@ -115,7 +115,15 @@ fn get_interface() -> String {
     return get_default_interface().unwrap().name;
 }
 
-fn depase_packet(packet: &[u8]) {
-    let packet: EthernetPacket = EthernetPacket::new(packet).unwrap();
-    debug!("Das Paket kam von Mac: {} und geht nach Mac: {}",packet.get_source(),packet.get_destination())
+fn parse_packet(packet: &[u8]) {
+    if let Some(ethernet_packet) = EthernetPacket::new(packet) {
+        debug!(
+            "Das Paket kam von Mac: {} und geht nach Mac: {}",
+            ethernet_packet.get_source(),
+            ethernet_packet.get_destination()
+        );
+    } else {
+        todo!();
+        debug!("Fehler beim Parsen des Ethernet-Pakets");
+    }
 }
