@@ -8,10 +8,12 @@ use log::{debug, info, LevelFilter, trace};
 use pnet::datalink::{self, NetworkInterface};
 use pnet::datalink::Channel::Ethernet;
 use pnet::packet::ethernet::{EthernetPacket, EtherTypes};
-use pnet::packet::ip::IpNextHeaderProtocol;
+use pnet::packet::ip::IpNextHeaderProtocols;
 use pnet::packet::ipv4::Ipv4Packet;
 use pnet::packet::ipv6::Ipv6Packet;
 use pnet::packet::Packet;
+use pnet::packet::tcp::TcpPacket;
+use pnet::packet::udp::UdpPacket;
 
 const VERSION: &str = env!("CARGO_PKG_VERSION");
 const NAME: &str = env!("CARGO_PKG_NAME");
@@ -128,30 +130,41 @@ fn parse_packet(packet: &[u8]) {
         match ethernet_packet.get_ethertype() {
             EtherTypes::Ipv4 => {
                 if let Some(ipv4_packet) = Ipv4Packet::new(ethernet_packet.payload()) {
-                    ipv4_packet.get_total_length();
-                    debug!(
-                        "IPv4: Sender: {}, Empfänger: {} die Länge des Paketes ist: {}",
-                        ipv4_packet.get_source(),
-                        ipv4_packet.get_destination(),
-                        ipv4_packet.get_total_length(),
-                    );
+                    handle_ipv4_packet(&ipv4_packet);
                 }
-            },
+            }
             EtherTypes::Ipv6 => {
                 if let Some(ipv6_packet) = Ipv6Packet::new(ethernet_packet.payload()) {
-
-                    debug!(
-                        "IPv6: Sender: {}, Empfänger: {} die Länge des Paketes ist: {}",
-                        ipv6_packet.get_source(),
-                        ipv6_packet.get_destination(),
-                        ipv6_packet.get_payload_length(),
-
-                    );
+                    handle_ipv6_packet(&ipv6_packet)
                 }
-            },
+            }
             _ => debug!("Das Ethernet-Paket enthält kein IPv4- oder IPv6-Paket."),
         }
     } else {
         debug!("Fehler beim Parsen des Ethernet-Pakets");
     }
+}
+
+fn handle_ipv4_packet(ipv4_packet: &Ipv4Packet) {
+    debug!("IPv4: Sender: {}, Empfänger: {} die Länge des Paketes ist: {}",ipv4_packet.get_source(),ipv4_packet.get_destination(),ipv4_packet.get_total_length());
+
+    match ipv4_packet.get_next_level_protocol() {
+        IpNextHeaderProtocols::Tcp => {
+            if let Some(tcp_packet) = TcpPacket::new(ipv4_packet.payload()) {
+                debug!("TCP-Paket: Quellport {}, Zielport {}", tcp_packet.get_source(), tcp_packet.get_destination());
+            }
+        }
+        IpNextHeaderProtocols::Udp => {
+            if let Some(udp_packet) = UdpPacket::new(ipv4_packet.payload()) {
+                debug!("UDP-Paket: Quellport {}, Zielport {}", udp_packet.get_source(), udp_packet.get_destination());
+            }
+        }
+        _ => debug!("Anderes Protokoll"),
+    }
+}
+
+fn handle_ipv6_packet(ipv6_packet: &Ipv6Packet) {
+    debug!("IPv6: Sender: {}, Empfänger: {} die Länge des Paketes ist: {}",ipv6_packet.get_source(),ipv6_packet.get_destination(),ipv6_packet.get_payload_length());
+
+    todo!()
 }
