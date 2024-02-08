@@ -8,6 +8,7 @@ use log::{debug, info, LevelFilter, trace};
 use pnet::datalink::{self, NetworkInterface};
 use pnet::datalink::Channel::Ethernet;
 use pnet::packet::ethernet::{EthernetPacket, EtherTypes};
+use pnet::packet::ip::IpNextHeaderProtocol;
 use pnet::packet::ipv4::Ipv4Packet;
 use pnet::packet::ipv6::Ipv6Packet;
 use pnet::packet::Packet;
@@ -124,23 +125,27 @@ fn parse_packet(packet: &[u8]) {
             ethernet_packet.get_source(),
             ethernet_packet.get_destination()
         );
-
         match ethernet_packet.get_ethertype() {
             EtherTypes::Ipv4 => {
                 if let Some(ipv4_packet) = Ipv4Packet::new(ethernet_packet.payload()) {
+                    ipv4_packet.get_total_length();
                     debug!(
-                        "IPv4: Sender: {}, Empfänger: {}",
+                        "IPv4: Sender: {}, Empfänger: {} die Länge des Paketes ist: {}",
                         ipv4_packet.get_source(),
-                        ipv4_packet.get_destination()
+                        ipv4_packet.get_destination(),
+                        ipv4_packet.get_total_length(),
                     );
                 }
             },
             EtherTypes::Ipv6 => {
                 if let Some(ipv6_packet) = Ipv6Packet::new(ethernet_packet.payload()) {
+
                     debug!(
-                        "IPv6: Sender: {}, Empfänger: {}",
+                        "IPv6: Sender: {}, Empfänger: {} die Länge des Paketes ist: {}",
                         ipv6_packet.get_source(),
-                        ipv6_packet.get_destination()
+                        ipv6_packet.get_destination(),
+                        ipv6_packet.get_payload_length(),
+
                     );
                 }
             },
