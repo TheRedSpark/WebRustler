@@ -7,7 +7,9 @@ use env_logger::{Builder, WriteStyle};
 use log::{debug, info, LevelFilter, trace};
 use pnet::datalink::{self, NetworkInterface};
 use pnet::datalink::Channel::Ethernet;
-use pnet::packet::ethernet::EthernetPacket;
+use pnet::packet::ethernet::{EthernetPacket, EtherTypes};
+use pnet::packet::ipv4::Ipv4Packet;
+use pnet::packet::ipv6::Ipv6Packet;
 use pnet::packet::Packet;
 
 const VERSION: &str = env!("CARGO_PKG_VERSION");
@@ -101,7 +103,7 @@ fn test() {
         match rx.next() {
             Ok(packet) => {
                 trace!("Das empfangene Paket ist:{:?}",packet);
-                depase_packet(packet);
+                parse_packet(packet);
             }
             Err(e) => {
                 // If an error occurs, we can handle it here
@@ -122,8 +124,29 @@ fn parse_packet(packet: &[u8]) {
             ethernet_packet.get_source(),
             ethernet_packet.get_destination()
         );
+
+        match ethernet_packet.get_ethertype() {
+            EtherTypes::Ipv4 => {
+                if let Some(ipv4_packet) = Ipv4Packet::new(ethernet_packet.payload()) {
+                    debug!(
+                        "IPv4: Sender: {}, Empfänger: {}",
+                        ipv4_packet.get_source(),
+                        ipv4_packet.get_destination()
+                    );
+                }
+            },
+            EtherTypes::Ipv6 => {
+                if let Some(ipv6_packet) = Ipv6Packet::new(ethernet_packet.payload()) {
+                    debug!(
+                        "IPv6: Sender: {}, Empfänger: {}",
+                        ipv6_packet.get_source(),
+                        ipv6_packet.get_destination()
+                    );
+                }
+            },
+            _ => debug!("Das Ethernet-Paket enthält kein IPv4- oder IPv6-Paket."),
+        }
     } else {
-        todo!();
         debug!("Fehler beim Parsen des Ethernet-Pakets");
     }
 }
