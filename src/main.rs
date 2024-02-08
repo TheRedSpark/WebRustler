@@ -1,8 +1,14 @@
+use std::env;
 use std::thread::sleep;
 use std::time;
 
+use default_net::get_default_interface;
 use env_logger::{Builder, WriteStyle};
-use log::{info, LevelFilter};
+use log::{debug, info, LevelFilter, trace};
+use pnet::datalink::{self, NetworkInterface};
+use pnet::datalink::Channel::Ethernet;
+use pnet::packet::ethernet::EthernetPacket;
+use pnet::packet::Packet;
 
 const VERSION: &str = env!("CARGO_PKG_VERSION");
 const NAME: &str = env!("CARGO_PKG_NAME");
@@ -57,13 +63,59 @@ fn welcome() {
     sleep(time::Duration::from_millis(speed));
 }
 
-fn main() {
+fn setup() {
     welcome();
-    let mut builder = Builder::new();
+    let mut builder: Builder = Builder::new();
     builder
-        .filter(None, LevelFilter::Info)
+        .filter(None, LevelFilter::Debug)
         .write_style(WriteStyle::Always)
         .init();
-    info!("The software is licensed under {}. All rights reserved",LICENSE)
+    info!("The software is licensed under {}. All rights reserved",LICENSE);
     info!("{} started with version {}",NAME,VERSION);
+}
+
+fn main() {
+    setup();
+    test();
+}
+
+
+fn test() {
+    let interface_name: String = get_interface();
+    let interface_names_match =
+        |iface: &NetworkInterface| iface.name == interface_name;
+    debug!("Das gewählte Interface ist:{}",interface_name);
+    let interfaces: Vec<NetworkInterface> = datalink::interfaces();
+    let interface: NetworkInterface = interfaces.into_iter()
+        .filter(interface_names_match)
+        .next()
+        .unwrap();
+
+    let (mut tx, mut rx) = match datalink::channel(&interface, Default::default()) {
+        Ok(Ethernet(tx, rx)) => (tx, rx),
+        Ok(_) => panic!("Unhandled channel type"),
+        Err(e) => panic!("An error occurred when creating the datalink channel: {}", e)
+    };
+
+    loop {
+        match rx.next() {
+            Ok(packet) => {
+                trace!("Das empfangene Paket ist:{:?}",packet);
+                depase_packet(packet);
+            }
+            Err(e) => {
+                // If an error occurs, we can handle it here
+                panic!("An error occurred while reading: {}", e);
+            }
+        }
+    }
+}
+
+fn get_interface() -> String {
+    return get_default_interface().unwrap().name;
+}
+
+fn depase_packet(packet: &[u8]) {
+    let packet: EthernetPacket = EthernetPacket::new(packet).unwrap();
+    debug!("Das Paket kam von Mac: {} und geht nach Mac: {}",packet.get_source(),packet.get_destination())
 }
