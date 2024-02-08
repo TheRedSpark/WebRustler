@@ -22,3 +22,4 @@ warp = { version = "0.3.6", features = ["tls"] }
 serde = { version = "1.0.193", features = ["derive"] }
 serde_json = { version = "1.0.108", features = ["default"] }
 mysql = { version = "24.0.0", features = ["default-rustls"], default-features = false }
+chrono = { version = "0.4.31", features = ["default"] }
