@@ -1,4 +1,6 @@
+use std::collections::HashMap;
 use std::env;
+use std::net::Ipv4Addr;
 use std::thread::sleep;
 use std::time;
 
@@ -86,6 +88,7 @@ fn main() {
 
 
 fn test() {
+    let mut data: HashMap<Ipv4Addr, u16> = HashMap::new(); //Hashmap<IP,traffic>
     let interface_name: String = get_interface();
     let interface_names_match =
         |iface: &NetworkInterface| iface.name == interface_name;
@@ -106,7 +109,7 @@ fn test() {
         match rx.next() {
             Ok(packet) => {
                 trace!("Das empfangene Paket ist:{:?}",packet);
-                parse_packet(packet);
+                parse_packet(packet, &mut data);
             }
             Err(e) => {
                 // If an error occurs, we can handle it here
@@ -120,7 +123,7 @@ fn get_interface() -> String {
     return get_default_interface().unwrap().name;
 }
 
-fn parse_packet(packet: &[u8]) {
+fn parse_packet(packet: &[u8], data: & mut HashMap<Ipv4Addr, u16>) {
     if let Some(ethernet_packet) = EthernetPacket::new(packet) {
         debug!(
             "Das Paket kam von Mac: {} und geht nach Mac: {}",
@@ -130,7 +133,7 @@ fn parse_packet(packet: &[u8]) {
         match ethernet_packet.get_ethertype() {
             EtherTypes::Ipv4 => {
                 if let Some(ipv4_packet) = Ipv4Packet::new(ethernet_packet.payload()) {
-                    handle_ipv4_packet(&ipv4_packet);
+                    handle_ipv4_packet(&ipv4_packet,data);
                 }
             }
             EtherTypes::Ipv6 => {
@@ -145,9 +148,9 @@ fn parse_packet(packet: &[u8]) {
     }
 }
 
-fn handle_ipv4_packet(ipv4_packet: &Ipv4Packet) {
+fn handle_ipv4_packet(ipv4_packet: &Ipv4Packet,data: & mut HashMap<Ipv4Addr, u16>) {
     debug!("IPv4: Sender: {}, Empfänger: {} die Länge des Paketes ist: {}",ipv4_packet.get_source(),ipv4_packet.get_destination(),ipv4_packet.get_total_length());
-
+    traffic_count_legacy(data,ipv4_packet.get_source(),ipv4_packet.get_total_length());
     match ipv4_packet.get_next_level_protocol() {
         IpNextHeaderProtocols::Tcp => {
             if let Some(tcp_packet) = TcpPacket::new(ipv4_packet.payload()) {
@@ -167,4 +170,10 @@ fn handle_ipv6_packet(ipv6_packet: &Ipv6Packet) {
     debug!("IPv6: Sender: {}, Empfänger: {} die Länge des Paketes ist: {}",ipv6_packet.get_source(),ipv6_packet.get_destination(),ipv6_packet.get_payload_length());
 
     todo!()
+}
+
+fn traffic_count_legacy(data: &mut HashMap<Ipv4Addr, u16>, ip_addr: Ipv4Addr, traffic_packet: u16) {
+
+    *data.entry(ip_addr).or_insert(0) += traffic_packet;
+    info!("Die Trafficdaten sind:{:?}",data)
 }
