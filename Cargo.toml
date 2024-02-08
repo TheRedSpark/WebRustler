@@ -1,0 +1,22 @@
+[package]
+name = "WebRustler"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+[[bin]]
+name = "WebRustler"
+path = "src/main.rs"
+
+[dependencies]
+thiserror = { version = "1.0.52" }
+log = { version = "0.4.20" }
+env_logger = { version = "0.10.1", features = [] }
+pnet = { version = "0.34.0" }
+rand = { version = "0.8.5", features = [] }
+default-net = {version = "0.21.0"}
+tokio = { version = "1.35.0", features = ["full"] }
+warp = { version = "0.3.6", features = ["tls"] }
+serde = { version = "1.0.193", features = ["derive"] }
+serde_json = { version = "1.0.108", features = ["default"] }
+mysql = { version = "24.0.0", features = ["default-rustls"], default-features = false }
