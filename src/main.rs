@@ -116,18 +116,17 @@ fn test() {
             Ok(packet) => {
                 trace!("Das empfangene Paket ist:{:?}",packet);
                 parse_packet(packet, &mut data);
-                if (i == 100000) {
+                if (i == 1000000) {
                     warn!("Daten werden in DB geschrieben");
                     upload_data(data.clone()).unwrap();
                     data.clear();
                     i = 0
                 } else {
                     i = i + 1;
-                    info!("{}",i)
+                    if i % 1000 == 0 { info!("{}",i) }
                 }
             }
             Err(e) => {
-                // If an error occurs, we can handle it here
                 panic!("An error occurred while reading: {}", e);
             }
         }
@@ -191,7 +190,7 @@ fn handle_ipv6_packet(ipv6_packet: &Ipv6Packet) {
 
 fn traffic_count_legacy(data: &mut HashMap<Ipv4Addr, usize>, ip_addr: Ipv4Addr, traffic_packet: u16) {
     *data.entry(ip_addr).or_insert(0) += traffic_packet as usize;
-    info!("Die Trafficdaten sind:{:?}",data);
+    debug!("Die Trafficdaten sind:{:?}",data);
     //upload_data(data.clone()).unwrap();
     //data.clear()
 }
@@ -202,13 +201,15 @@ fn upload_data(data: HashMap<Ipv4Addr, usize>) -> Result<(), Box<dyn std::error:
     let stamp: String = format!("{}", stamp.format("%Y-%m-%d %H:%M:%S"));
     let mut conn: PooledConn = db_pool.get_conn()?;
     debug!("Es wurde erfolgreich eine Connection zur Datenbank hergestellt");
+    info!("Es werden folgende Trafficdaten in die Datenbank geschrieben:{:?}",data);
     //trace!("Es werden nun folgende Daten in die Datenbank geschrieben -> Menge:{},Sorte:{},Prozente:{},Bemerkung:{}",data.menge,data.sorte,data.prozente,data.bemerkung);
     for (ipaddr, bytes) in data.iter() {
         conn.exec_drop(
-            "INSERT INTO Test (ip_src, bytes) VALUES (:ip, :bytes) ON DUPLICATE KEY UPDATE bytes = bytes + :bytes",
+            "INSERT INTO Test (ip_src, bytes,stamp_inserted,stamp_updated) VALUES (:ip, :bytes, :stamp, :stamp) ON DUPLICATE KEY UPDATE bytes = bytes + :bytes,stamp_updated = :stamp",
             params! {
             "ip" => ipaddr.to_string().clone(),
             "bytes" => bytes,
+                "stamp" => stamp.clone(),
         },
         )?;
     }
