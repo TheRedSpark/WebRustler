@@ -20,11 +20,13 @@ use pnet::packet::ipv6::Ipv6Packet;
 use pnet::packet::Packet;
 use pnet::packet::tcp::TcpPacket;
 use pnet::packet::udp::UdpPacket;
+use crate::dpi::dpi_main;
 use crate::legacy::legacy_main;
 
 mod variables;
 mod legacy;
 mod dpi;
+mod database;
 
 const VERSION: &str = env!("CARGO_PKG_VERSION");
 const NAME: &str = env!("CARGO_PKG_NAME");
@@ -92,7 +94,8 @@ fn setup() {
 
 fn main() {
     setup();
-    legacy_main();
+    //legacy_main();
+    dpi_main();
 }
 
 

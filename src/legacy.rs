@@ -90,21 +90,6 @@ fn parse_packet(packet: &[u8], data: &mut HashMap<String, usize>) {
 fn handle_ipv4_packet(ipv4_packet: &Ipv4Packet, data: &mut HashMap<String, usize>) {
     debug!("IPv4: Sender: {}, Empfänger: {} die Länge des Paketes ist: {}",ipv4_packet.get_source(),ipv4_packet.get_destination(),ipv4_packet.get_total_length());
     traffic_count_legacy(data, ipv4_packet.get_source().to_string(), ipv4_packet.get_total_length());
-    match ipv4_packet.get_next_level_protocol() {
-        IpNextHeaderProtocols::Tcp => {
-            if let Some(tcp_packet) = TcpPacket::new(ipv4_packet.payload()) {
-                debug!("TCP-Paket: Quellport {}, Zielport {}", tcp_packet.get_source(), tcp_packet.get_destination());
-            }
-        }
-        IpNextHeaderProtocols::Udp => {
-            if let Some(udp_packet) = UdpPacket::new(ipv4_packet.payload()) {
-                debug!("UDP-Paket: Quellport {}, Zielport {}", udp_packet.get_source(), udp_packet.get_destination());
-            }
-        }
-        IpNextHeaderProtocols::Tlsp => { todo!("Protokoll Tlsp muss noch implementiert werden") }
-        IpNextHeaderProtocols::Sctp => { todo!("Protokoll Sctp muss noch implementiert werden") }
-        _ => debug!("Anderes Protokoll"),
-    }
 }
 
 fn handle_ipv6_packet(ipv6_packet: &Ipv6Packet, data: &mut HashMap<String, usize>) {
