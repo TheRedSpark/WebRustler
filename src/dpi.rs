@@ -156,7 +156,7 @@ fn clear_data(data: &mut HashMap<String, &mut HashMap<String, usize>>) {
 fn traffic_count(data: &mut HashMap<String, &mut HashMap<String, usize>>, ip_source: String, ip_destination: String, traffic_packet: u16) {
     let mut key: &str;
     let ip = Ipv4Addr::from_str(&*ip_source).unwrap();
-    if ip_belongs_to_subnet(ip, &subnet, &mask) { key = "egress";
+    if ip_belongs_to_subnet(ip) { key = "egress";
         if let Some(traffic_raw) = data.get_mut(key) {
             *traffic_raw.entry(ip_source).or_insert(0) += traffic_packet as usize;
         } else {
@@ -173,10 +173,9 @@ fn traffic_count(data: &mut HashMap<String, &mut HashMap<String, usize>>, ip_sou
     debug!("Die Trafficdaten sind:{:?}", data);
 }
 
-fn ip_belongs_to_subnet(ip: Ipv4Addr, subnet: Ipv4Addr, mask: Ipv4Addr) -> bool {
+fn ip_belongs_to_subnet(ip: Ipv4Addr) -> bool {
     let ip_int = u32::from_be_bytes(ip.octets());
 
-    // Berechnung der Netzwerkadresse des Subnetzes und der IP
     (ip_int & MASK) == (SUBNET & MASK)
 }
 
