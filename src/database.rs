@@ -6,7 +6,7 @@ use log::{debug, info};
 use mysql::{params, Pool, PooledConn};
 use mysql::prelude::Queryable;
 
-pub(crate) fn upload_data_egress(pool: Pool, data: HashMap<String, usize>) -> Result<(), Box<dyn std::error::Error>> {
+pub(crate) fn upload_data_with_key(pool: Pool, data: HashMap<String, usize>, key: &str) -> Result<(), Box<dyn std::error::Error>> {
     let stamp_time: DateTime<Local> = Local::now();
     let stamp: String = format!("{}", stamp_time.format("%Y-%m-%d %H:%M:%S"));
     let day: String = format!("{}", stamp_time.format("%Y-%m-%d"));
@@ -15,10 +15,10 @@ pub(crate) fn upload_data_egress(pool: Pool, data: HashMap<String, usize>) -> Re
     info!("Es werden folgende Trafficdaten als Egress in die Datenbank geschrieben:{:?}",data);
     for (ipaddr, bytes) in data.iter() {
         conn.exec_drop(
-            "INSERT INTO RawTraffic (ip, egress, day, updated) VALUES (:ip, :egress, :day, :updated) ON DUPLICATE KEY UPDATE egress = egress + :egress, updated = :updated",
+            format!("INSERT INTO RawTraffic (ip, {}, day, updated) VALUES (:ip, :{}, :day, :updated) ON DUPLICATE KEY UPDATE {} = {} + :{}, updated = :updated",key,key,key,key,key),
             params! {
             "ip" => ipaddr.to_string().clone(),
-            "egress" => bytes,
+            key => bytes,
                 "day" => day.clone(),
                 "updated" => stamp.clone(),
         },

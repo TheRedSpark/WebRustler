@@ -21,7 +21,7 @@ use pnet::packet::Packet;
 use pnet::packet::tcp::TcpPacket;
 use pnet::packet::udp::UdpPacket;
 
-use crate::database::{upload_data_egress, upload_data_ingress};
+use crate::database::{ upload_data_ingress, upload_data_with_key};
 use crate::string_builder;
 
 const SUBNET: u32 = u32::from_be_bytes(Ipv4Addr::new(10, 82, 62, 0).octets());
@@ -30,10 +30,17 @@ const MASK: u32 = u32::from_be_bytes(Ipv4Addr::new(255, 255, 255, 0).octets());
 pub(crate) fn dpi_main() {
     let mut data: HashMap<String, &mut HashMap<String, usize>> = Default::default();
     let mut ingress: HashMap<String, usize> = Default::default();
-    ingress.insert("127.0.0.1".to_string(), 30);
     let mut egress: HashMap<String, usize> = Default::default();
+    let mut tlsp: HashMap<String, usize> = Default::default();
+    let mut sctp: HashMap<String, usize> = Default::default();
+    let mut tcp: HashMap<String, usize> = Default::default();
+    let mut udp: HashMap<String, usize> = Default::default();
     data.insert("ingress".to_string(), &mut ingress);
     data.insert("egress".to_string(), &mut egress);
+    data.insert("tlsp".to_string(), &mut tlsp);
+    data.insert("sctp".to_string(), &mut sctp);
+    data.insert("tcp".to_string(), &mut tcp);
+    data.insert("udp".to_string(), &mut udp);
     let interface = get_used_interface();
     let (mut tx, mut rx) = match datalink::channel(&interface, Default::default()) {
         Ok(Ethernet(tx, rx)) => (tx, rx),
@@ -84,7 +91,7 @@ fn get_interface() -> String {
 
 fn parse_packet(packet: &[u8], data: &mut HashMap<String, &mut HashMap<String, usize>>) {
     if let Some(ethernet_packet) = EthernetPacket::new(packet) {
-        debug!(
+        trace!(
             "Das Paket kam von Mac: {} und geht nach Mac: {}",
             ethernet_packet.get_source(),
             ethernet_packet.get_destination()
@@ -108,17 +115,19 @@ fn parse_packet(packet: &[u8], data: &mut HashMap<String, &mut HashMap<String, u
 }
 
 fn handle_ipv4_packet(ipv4_packet: &Ipv4Packet, data: &mut HashMap<String, &mut HashMap<String, usize>>) {
-    debug!("IPv4: Sender: {}, Empfänger: {} die Länge des Paketes ist: {}",ipv4_packet.get_source(),ipv4_packet.get_destination(),ipv4_packet.get_total_length());
-    traffic_count(data, ipv4_packet.get_source().to_string(), ipv4_packet.get_destination().to_string(), ipv4_packet.get_total_length());
+    trace!("IPv4: Sender: {}, Empfänger: {} die Länge des Paketes ist: {}",ipv4_packet.get_source(),ipv4_packet.get_destination(),ipv4_packet.get_total_length());
+    //traffic_count(data, &ipv4_packet.get_source(), &ipv4_packet.get_destination(), ipv4_packet.get_total_length());
     match ipv4_packet.get_next_level_protocol() {
         IpNextHeaderProtocols::Tcp => {
             if let Some(tcp_packet) = TcpPacket::new(ipv4_packet.payload()) {
-                debug!("TCP-Paket: Quellport {}, Zielport {}", tcp_packet.get_source(), tcp_packet.get_destination());
+                trace!("TCP-Paket: Quellport {}, Zielport {}", tcp_packet.get_source(), tcp_packet.get_destination());
+                traffic_count(data, &ipv4_packet.get_source(), &ipv4_packet.get_destination(), ipv4_packet.get_total_length(),"tcp");
             }
         }
         IpNextHeaderProtocols::Udp => {
             if let Some(udp_packet) = UdpPacket::new(ipv4_packet.payload()) {
-                debug!("UDP-Paket: Quellport {}, Zielport {}", udp_packet.get_source(), udp_packet.get_destination());
+                trace!("UDP-Paket: Quellport {}, Zielport {}", udp_packet.get_source(), udp_packet.get_destination());
+                traffic_count(data, &ipv4_packet.get_source(), &ipv4_packet.get_destination(), ipv4_packet.get_total_length(),"udp");
             }
         }
         IpNextHeaderProtocols::Tlsp => { todo!("Protokoll Tlsp muss noch implementiert werden") }
@@ -135,14 +144,14 @@ fn handle_ipv6_packet(ipv6_packet: &Ipv6Packet, _data: &mut HashMap<String, usiz
 fn upload_data(data: &mut HashMap<String, &mut HashMap<String, usize>>) {
     let pool: Pool = Pool::new(&*string_builder()).expect("Pool bildung fehlgeschlagen");
     for (key, value) in data.iter_mut() {
-        let key: String = key.to_string();
-        match key.as_str() {
-            "egress" => { upload_data_egress(pool.clone(), value.clone()).unwrap() }
-            "ingress" => { upload_data_ingress(pool.clone(), value.clone()).unwrap() }
-            &_ => { panic!() }
-        }
+        //let key: String = key.to_string();
+        upload_data_with_key(pool.clone(), value.clone(),key).unwrap()
+        // match key.as_str() {
+        //     "egress" => { upload_data_egress(pool.clone(), value.clone()).unwrap() }
+        //     "ingress" => { upload_data_ingress(pool.clone(), value.clone()).unwrap() }
+        //     &_ => { panic!() }
+        // }
     }
-    exit(0)
 }
 
 fn clear_data(data: &mut HashMap<String, &mut HashMap<String, usize>>) {
@@ -152,24 +161,32 @@ fn clear_data(data: &mut HashMap<String, &mut HashMap<String, usize>>) {
     }
 }
 
-fn traffic_count(data: &mut HashMap<String, &mut HashMap<String, usize>>, ip_source: String, ip_destination: String, traffic_packet: u16) {
-    let key: &str;
-    let ip = Ipv4Addr::from_str(&*ip_source).unwrap();
+fn traffic_count(data: &mut HashMap<String, &mut HashMap<String, usize>>, ip_source: &Ipv4Addr, ip_destination: &Ipv4Addr, traffic_packet: u16, key_protokoll: &str) {
+    let ip = Ipv4Addr::from_str(&*ip_source.to_string()).unwrap();
     if ip_belongs_to_subnet(ip) {
-        key = "egress";
-        if let Some(traffic_raw) = data.get_mut(key) {
-            *traffic_raw.entry(ip_source).or_insert(0) += traffic_packet as usize;
+        if let Some(traffic_raw) = data.get_mut("egress") {
+            *traffic_raw.entry((*ip_source).to_string()).or_insert(0) += traffic_packet as usize;
+        } else {
+            panic!()
+        }
+        if let Some(traffic_raw) = data.get_mut(key_protokoll) {
+            *traffic_raw.entry((*ip_source).to_string()).or_insert(0) += traffic_packet as usize;
         } else {
             panic!()
         }
     } else {
-        key = "ingress";
-        if let Some(traffic_raw) = data.get_mut(key) {
-            *traffic_raw.entry(ip_destination).or_insert(0) += traffic_packet as usize;
+        if let Some(traffic_raw) = data.get_mut("ingress") {
+            *traffic_raw.entry((*ip_destination).to_string()).or_insert(0) += traffic_packet as usize;
+        } else {
+            panic!()
+        }
+        if let Some(traffic_raw) = data.get_mut(key_protokoll) {
+            *traffic_raw.entry((*ip_destination).to_string()).or_insert(0) += traffic_packet as usize;
         } else {
             panic!()
         }
     }
+
 
     trace!("Die Trafficdaten sind:{:?}", data);
 }
