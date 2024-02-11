@@ -1,5 +1,6 @@
 use std::collections::HashMap;
 use std::process::exit;
+
 use chrono::{DateTime, Local};
 use default_net::get_default_interface;
 use log::{debug, info, trace, warn};
@@ -9,12 +10,10 @@ use pnet::datalink;
 use pnet::datalink::Channel::Ethernet;
 use pnet::datalink::NetworkInterface;
 use pnet::packet::ethernet::{EthernetPacket, EtherTypes};
-use pnet::packet::ip::IpNextHeaderProtocols;
 use pnet::packet::ipv4::Ipv4Packet;
 use pnet::packet::ipv6::Ipv6Packet;
 use pnet::packet::Packet;
-use pnet::packet::tcp::TcpPacket;
-use pnet::packet::udp::UdpPacket;
+
 use crate::string_builder;
 
 pub(crate) fn legacy_main() {
@@ -29,8 +28,8 @@ pub(crate) fn legacy_main() {
         .next()
         .unwrap();
 
-    let (mut tx, mut rx) = match datalink::channel(&interface, Default::default()) {
-        Ok(Ethernet(tx, rx)) => (tx, rx),
+    let (mut rx) = match datalink::channel(&interface, Default::default()) {
+        Ok(Ethernet(..,rx)) => (rx),
         Ok(_) => panic!("Unhandled channel type"),
         Err(e) => panic!("An error occurred when creating the datalink channel: {}", e)
     };
@@ -40,7 +39,7 @@ pub(crate) fn legacy_main() {
             Ok(packet) => {
                 trace!("Das empfangene Paket ist:{:?}",packet);
                 parse_packet(packet, &mut data);
-                if (i == 100000) {
+                if i == 100000 {
                     warn!("Daten werden in DB geschrieben");
                     upload_data(data.clone()).unwrap();
                     data.clear();

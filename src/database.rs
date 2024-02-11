@@ -6,8 +6,6 @@ use log::{debug, info};
 use mysql::{params, Pool, PooledConn};
 use mysql::prelude::Queryable;
 
-use crate::string_builder;
-
 pub(crate) fn upload_data_egress(pool: Pool, data: HashMap<String, usize>) -> Result<(), Box<dyn std::error::Error>> {
     let stamp_time: DateTime<Local> = Local::now();
     let stamp: String = format!("{}", stamp_time.format("%Y-%m-%d %H:%M:%S"));

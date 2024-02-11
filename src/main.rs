@@ -1,27 +1,11 @@
-use std::collections::HashMap;
 use std::env;
-use std::net::{Ipv4Addr, Ipv6Addr};
-use std::process::exit;
 use std::thread::sleep;
 use std::time;
 
-use chrono::{DateTime, Local};
-use default_net::get_default_interface;
 use env_logger::{Builder, WriteStyle};
-use log::{debug, info, LevelFilter, trace, warn};
-use mysql::{params, Pool, PooledConn};
-use mysql::prelude::Queryable;
-use pnet::datalink::{self, NetworkInterface};
-use pnet::datalink::Channel::Ethernet;
-use pnet::packet::ethernet::{EthernetPacket, EtherTypes};
-use pnet::packet::ip::IpNextHeaderProtocols;
-use pnet::packet::ipv4::Ipv4Packet;
-use pnet::packet::ipv6::Ipv6Packet;
-use pnet::packet::Packet;
-use pnet::packet::tcp::TcpPacket;
-use pnet::packet::udp::UdpPacket;
+use log::{ info, LevelFilter};
 use crate::dpi::dpi_main;
-use crate::legacy::legacy_main;
+
 
 mod variables;
 mod legacy;
@@ -97,9 +81,6 @@ fn main() {
     //legacy_main();
     dpi_main();
 }
-
-
-
 
 
 pub(crate) fn string_builder() -> String {

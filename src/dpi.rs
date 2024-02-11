@@ -4,12 +4,10 @@
 
 use std::collections::HashMap;
 use std::net::Ipv4Addr;
-use std::ops::DerefMut;
 use std::process::exit;
 use std::str::FromStr;
 
 use default_net::get_default_interface;
-use env_logger::fmt::style::AnsiColor::Magenta;
 use log::{debug, info, trace, warn};
 use mysql::Pool;
 use pnet::datalink;
@@ -25,8 +23,9 @@ use pnet::packet::udp::UdpPacket;
 
 use crate::database::{upload_data_egress, upload_data_ingress};
 use crate::string_builder;
-const SUBNET:u32 = u32::from_be_bytes(Ipv4Addr::new(10,82,62,0).octets());
-const MASK:u32 = u32::from_be_bytes(Ipv4Addr::new(255, 255, 255, 0).octets());
+
+const SUBNET: u32 = u32::from_be_bytes(Ipv4Addr::new(10, 82, 62, 0).octets());
+const MASK: u32 = u32::from_be_bytes(Ipv4Addr::new(255, 255, 255, 0).octets());
 
 pub(crate) fn dpi_main() {
     let mut data: HashMap<String, &mut HashMap<String, usize>> = Default::default();
@@ -47,7 +46,7 @@ pub(crate) fn dpi_main() {
             Ok(packet) => {
                 trace!("Das empfangene Paket ist:{:?}",packet);
                 parse_packet(packet, &mut data);
-                if (i == 5000) {
+                if i == 5000 {
                     warn!("Daten werden in DB geschrieben");
                     upload_data(&mut data);
                     clear_data(&mut data);
@@ -128,7 +127,7 @@ fn handle_ipv4_packet(ipv4_packet: &Ipv4Packet, data: &mut HashMap<String, &mut 
     }
 }
 
-fn handle_ipv6_packet(ipv6_packet: &Ipv6Packet, data: &mut HashMap<String, usize>) {
+fn handle_ipv6_packet(ipv6_packet: &Ipv6Packet, _data: &mut HashMap<String, usize>) {
     debug!("IPv6: Sender: {}, Empfänger: {} die Länge des Paketes ist: {}",ipv6_packet.get_source(),ipv6_packet.get_destination(),ipv6_packet.get_payload_length());
     //todo!("IPv6 Protokolle implementieren")
 }
@@ -154,15 +153,17 @@ fn clear_data(data: &mut HashMap<String, &mut HashMap<String, usize>>) {
 }
 
 fn traffic_count(data: &mut HashMap<String, &mut HashMap<String, usize>>, ip_source: String, ip_destination: String, traffic_packet: u16) {
-    let mut key: &str;
+    let key: &str;
     let ip = Ipv4Addr::from_str(&*ip_source).unwrap();
-    if ip_belongs_to_subnet(ip) { key = "egress";
+    if ip_belongs_to_subnet(ip) {
+        key = "egress";
         if let Some(traffic_raw) = data.get_mut(key) {
             *traffic_raw.entry(ip_source).or_insert(0) += traffic_packet as usize;
         } else {
             panic!()
         }
-    } else { key = "ingress";
+    } else {
+        key = "ingress";
         if let Some(traffic_raw) = data.get_mut(key) {
             *traffic_raw.entry(ip_destination).or_insert(0) += traffic_packet as usize;
         } else {
@@ -170,7 +171,7 @@ fn traffic_count(data: &mut HashMap<String, &mut HashMap<String, usize>>, ip_sou
         }
     }
 
-    debug!("Die Trafficdaten sind:{:?}", data);
+    trace!("Die Trafficdaten sind:{:?}", data);
 }
 
 fn ip_belongs_to_subnet(ip: Ipv4Addr) -> bool {
