@@ -9,6 +9,7 @@ use std::process::exit;
 use std::str::FromStr;
 
 use default_net::get_default_interface;
+use env_logger::fmt::style::AnsiColor::Magenta;
 use log::{debug, info, trace, warn};
 use mysql::Pool;
 use pnet::datalink;
@@ -24,6 +25,8 @@ use pnet::packet::udp::UdpPacket;
 
 use crate::database::{upload_data_egress, upload_data_ingress};
 use crate::string_builder;
+const SUBNET:u32 = u32::from_be_bytes(Ipv4Addr::new(10,82,62,0).octets());
+const MASK:u32 = u32::from_be_bytes(Ipv4Addr::new(255, 255, 255, 0).octets());
 
 pub(crate) fn dpi_main() {
     let mut data: HashMap<String, &mut HashMap<String, usize>> = Default::default();
@@ -153,9 +156,7 @@ fn clear_data(data: &mut HashMap<String, &mut HashMap<String, usize>>) {
 fn traffic_count(data: &mut HashMap<String, &mut HashMap<String, usize>>, ip_source: String, ip_destination: String, traffic_packet: u16) {
     let mut key: &str;
     let ip = Ipv4Addr::from_str(&*ip_source).unwrap();
-    let subnet = Ipv4Addr::new(10,82,62,0);
-    let mask = Ipv4Addr::new(255, 255, 255, 0);
-    if ip_belongs_to_subnet(ip, subnet, mask) { key = "egress";
+    if ip_belongs_to_subnet(ip, &subnet, &mask) { key = "egress";
         if let Some(traffic_raw) = data.get_mut(key) {
             *traffic_raw.entry(ip_source).or_insert(0) += traffic_packet as usize;
         } else {
@@ -174,10 +175,8 @@ fn traffic_count(data: &mut HashMap<String, &mut HashMap<String, usize>>, ip_sou
 
 fn ip_belongs_to_subnet(ip: Ipv4Addr, subnet: Ipv4Addr, mask: Ipv4Addr) -> bool {
     let ip_int = u32::from_be_bytes(ip.octets());
-    let subnet_int = u32::from_be_bytes(subnet.octets());
-    let mask_int = u32::from_be_bytes(mask.octets());
 
     // Berechnung der Netzwerkadresse des Subnetzes und der IP
-    (ip_int & mask_int) == (subnet_int & mask_int)
+    (ip_int & MASK) == (SUBNET & MASK)
 }
 
