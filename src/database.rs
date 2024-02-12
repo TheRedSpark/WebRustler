@@ -12,10 +12,10 @@ pub(crate) fn upload_data_with_key(pool: Pool, data: HashMap<String, usize>, key
     let day: String = format!("{}", stamp_time.format("%Y-%m-%d"));
     let mut conn: PooledConn = pool.get_conn()?;
     debug!("Es wurde erfolgreich eine Connection zur Datenbank hergestellt");
-    info!("Es werden folgende Trafficdaten als Egress in die Datenbank geschrieben:{:?}",data);
+    info!("Es werden folgende Trafficdaten als {} in die Datenbank geschrieben:{:?}",key,data);
     for (ipaddr, bytes) in data.iter() {
         conn.exec_drop(
-            format!("INSERT INTO RawTraffic (ip, {}, day, updated) VALUES (:ip, :{}, :day, :updated) ON DUPLICATE KEY UPDATE {} = {} + :{}, updated = :updated",key,key,key,key,key),
+            format!("INSERT INTO RawTraffic (ip, {}, day, updated) VALUES (:ip, :{}, :day, :updated) ON DUPLICATE KEY UPDATE {} = {} + :{}, updated = :updated", key, key, key, key, key),
             params! {
             "ip" => ipaddr.to_string().clone(),
             key => bytes,
